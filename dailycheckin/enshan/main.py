@@ -74,31 +74,20 @@ class EnShan(CheckIn):
 
     @staticmethod
     def get_info(session):
-        msg = []
-        response = session.get("https://www.right.com.cn/FORUM/home.php?mod=spacecp&ac=credit&showcredit=1", timeout=15)
+        response = session.get("https://www.right.com.cn/forum/home.php?mod=spacecp&ac=credit&showcredit=1", timeout=15)
         response.raise_for_status()
         html = response.text
-        try:
-            coin = re.findall("恩山币: </em>(.*?)&nbsp;", html)[0]
-            point = re.findall("<em>积分: </em>(.*?)<span", html)[0]
-            msg = [
-                {
-                    "name": "恩山币",
-                    "value": coin,
-                },
-                {
-                    "name": "积分",
-                    "value": point,
-                },
-            ]
-        except Exception as e:
-            msg = [
-                {
-                    "name": "获取代币失败",
-                    "value": str(e),
-                }
-            ]
-        return msg
+        if re.search(r"(?:请先登录|您需要先登录|登录后才能)", html) or "login" in response.url.lower():
+            return [{"name": "获取代币失败", "value": "请先登录"}]
+
+        coin_match = re.search(r"恩山币\s*:\s*</em>\s*(.*?)&nbsp;", html, re.S)
+        point_match = re.search(r"<em(?:\s+[^>]*)?>\s*积分\s*:\s*</em>\s*(.*?)\s*<span", html, re.S)
+        if not coin_match or not point_match:
+            return [{"name": "获取代币失败", "value": "未找到积分信息，请检查 Cookie 是否有效"}]
+        return [
+            {"name": "恩山币", "value": coin_match.group(1).strip()},
+            {"name": "积分", "value": point_match.group(1).strip()},
+        ]
 
     def main(self):
         cookie = self.check_item.get("cookie")
